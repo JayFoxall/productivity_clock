@@ -3,10 +3,15 @@ import { useState } from "react";
 export function ProductivityClock() {
   const INCREMENT = "Increment";
   const DECREMENT = "Decrement";
-  const SESSION = "session";
+  const SESSION = "Session";
   const BREAK = "Break";
+
   const defaultTimerState = { sessionLength: 25, breakLength: 5 };
-  const defaultPlayState = { countdown: false, activeTimer: SESSION };
+  const defaultPlayState = {
+    countdown: false,
+    activeTimer: SESSION,
+    timerID: 0,
+  };
 
   let [display, setDisplay] = useState(defaultTimerState);
   let [playState, setPlayState] = useState(defaultPlayState);
@@ -26,39 +31,60 @@ export function ProductivityClock() {
       }
   }
 
+  //TODO: Refactor clockCountdown to return minutesRemaining and secondsRemaining, and pass in break/sessionTimeInSeconds as arguments
   let sessionTimeInSeconds = display.sessionLength * 60;
   let breakTimeInSeconds = display.breakLength * 60;
-  let minutesRemaining = 1;
-  let secondsRemaining = 1;
+  let minutesRemaining = 0;
+  let secondsRemaining = 0;
 
-  function handleStartStop(){
-    if (playState.countdown === true){
-        setPlayState(Object.assign({}, playState, {countdown:false}))
-    }else{
-        setPlayState(Object.assign({}, playState, {countdown:true}))
-    }
-  }
-    while (playState.countdown === true) {
-      if (playState.activeTimer === SESSION) {
+  function clockCountdown() {
+    if (playState.activeTimer === SESSION) {
+      if (sessionTimeInSeconds > 0) {
         sessionTimeInSeconds--;
-        if (sessionTimeInSeconds > 0) {
-          minutesRemaining = Math.floor(sessionTimeInSeconds / 60);
-          secondsRemaining = sessionTimeInSeconds % 60;
-          console.log(minutesRemaining + ":" + secondsRemaining);
-        }
-
-        if (playState.activeTimer === BREAK) {
-          breakTimeInSeconds--;
-          if (breakTimeInSeconds > 0) {
-            minutesRemaining = Math.floor(sessionTimeInSeconds / 60);
-            secondsRemaining = sessionTimeInSeconds % 60;
-            console.log(minutesRemaining + ":" + secondsRemaining);
-          }
-        }
-        setTimeout({}, 1000);
+        minutesRemaining = Math.floor(sessionTimeInSeconds / 60);
+        secondsRemaining = sessionTimeInSeconds % 60;
+        console.log(minutesRemaining + ":" + secondsRemaining);
+        this.forceUpdate();
+      }
+      if (sessionTimeInSeconds === 0) {
+        setPlayState(Object.assign({}, playState, { activeTimer: BREAK }));
+        sessionTimeInSeconds = display.sessionLength * 60;
       }
     }
-  
+    if (playState.activeTimer === BREAK) {
+      if (breakTimeInSeconds > 0) {
+        breakTimeInSeconds--;
+        minutesRemaining = Math.floor(breakTimeInSeconds / 60);
+        secondsRemaining = breakTimeInSeconds % 60;
+        console.log(minutesRemaining + ":" + secondsRemaining);
+        this.forceUpdate();
+      }
+      if (breakTimeInSeconds === 0) {
+        setPlayState(Object.assign({}, playState, { activeTimer: SESSION }));
+        breakTimeInSeconds = display.sessionLength * 60;
+      }
+    }
+  }
+
+  // function activateTimer(){
+  //    return setInterval(() => clockCountdown(), 1000);
+  // }
+  // function stopTimer() {
+  //   clearInterval();
+  // }
+
+  let id = [];
+  function startStopClickHandler() {
+    if (playState.countdown === false) {
+      id = setInterval(() => clockCountdown(), 1000);
+      setPlayState(
+        Object.assign({}, playState, { countdown: true, timerID: id })
+      );
+    } else {
+      setPlayState(Object.assign({}, playState, { countdown: false }));
+      clearInterval(playState.timerID);
+    }
+  }
 
   return (
     <>
@@ -72,11 +98,7 @@ export function ProductivityClock() {
             ? `${display.sessionLength}:00`
             : `${minutesRemaining} : ${secondsRemaining}`}
         </div>
-        <button
-          id="start-stop"
-          onClick={handleStartStop}
-          
-        >
+        <button id="start-stop" onClick={startStopClickHandler}>
           Start/Stop
         </button>
         <button id="reset" onClick={() => setDisplay(defaultTimerState)}>
