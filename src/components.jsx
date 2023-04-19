@@ -1,26 +1,22 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+const INCREMENT = "Increment";
+const DECREMENT = "Decrement";
+const SESSION = "Session";
+const BREAK = "Break";
 
 export function ProductivityClock() {
-  const INCREMENT = "Increment";
-  const DECREMENT = "Decrement";
-  const SESSION = "Session";
-  const BREAK = "Break";
-
-  const defaultTimerState = { sessionLength: 1, breakLength: 5 };
+  const defaultTimerState = {
+    sessionLength: 25,
+    breakLength: 5,
+    countdownActive: false,
+    activeTimer: SESSION,
+    ID: "",
+  };
   let [timer, setTimer] = useState(defaultTimerState);
 
-  const defaultDisplayState = {
-    minutesRemaining: timer.sessionLength,
-    secondsRemaining: "00",
-  };
-  let [displayState, setDisplayState] = useState(defaultDisplayState);
-
-  const defaultPlayState = {
-    countdown: false,
-    activeTimer: SESSION,
-    timerID: 0,
-  };
-  let [playState, setPlayState] = useState(defaultPlayState);
+  let defaultDisplayState = { minutes: timer.sessionLength, seconds: "0" };
+  let [display, setDisplay] = useState(defaultDisplayState);
 
   function adjustTimeClickHandler(component, element, state) {
     if (element.innerHTML === INCREMENT) {
@@ -33,107 +29,146 @@ export function ProductivityClock() {
       if (component === "SessionTimer" && timer.sessionLength > 1) {
         setTimer(Object.assign({}, timer, { sessionLength: (state -= 1) }));
       } else if (component === "BreakTimer" && timer.breakLength > 1) {
-        setTimer(Object.assign({}, timer, { breakLength: (state -= 1) }))
-        setPlayState(Object.assign({}, playState, {activeTimer: BREAK }));
-        console.log(playState)
+        setTimer(Object.assign({}, timer, { breakLength: (state -= 1) }));
       }
   }
+
+  let audio = document.getElementById("beep");
+  let playAudio = () => {
+    let count = 0;
+    let audioID = setInterval(() => {
+      audio.play();
+      count++;
+      if (count === 3) clearInterval(audioID);
+    }, 1000);
+  };
 
   //TODO: Refactor clockCountdown to return minutesRemaining and secondsRemaining, and pass in break/sessionTimeInSeconds as arguments
+  let id = "";
+  let minutes = "0";
+  let seconds = "0";
   let sessionTimeInSeconds = timer.sessionLength * 60;
   let breakTimeInSeconds = timer.breakLength * 60;
-  let minutes_Remaining = 0;
-  let seconds_Remaining = 0;
 
-  function clockCountdown() {
-    if (playState.activeTimer === SESSION) {
-      if (sessionTimeInSeconds > 0) {
-        sessionTimeInSeconds--;
-        minutes_Remaining = Math.floor(sessionTimeInSeconds / 60);
-        seconds_Remaining = sessionTimeInSeconds % 60;
-        console.log(minutes_Remaining + ":" + seconds_Remaining, playState);
-        setDisplayState({
-          minutesRemaining: minutes_Remaining,
-          secondsRemaining: seconds_Remaining,
-        });
-      }
-    if (sessionTimeInSeconds === 0) {
-      setPlayState(Object.assign({}, playState, {activeTimer: BREAK }));
-      return
-    }
-  }
-
-    if (playState.activeTimer === BREAK) {
-      if (breakTimeInSeconds > 0) {
-        breakTimeInSeconds--;
-        minutes_Remaining = Math.floor(breakTimeInSeconds / 60);
-        seconds_Remaining = breakTimeInSeconds % 60;
-        console.log(minutes_Remaining + ":" + seconds_Remaining);
-        setDisplayState({
-          minutesRemaining: minutes_Remaining,
-          secondsRemaining: seconds_Remaining
-        });
-      }
-      if (breakTimeInSeconds === 0) {
-        setPlayState(Object.assign({}, playState, {activeTimer: SESSION }));
-        breakTimeInSeconds = timer.sessionLength * 60;
-        
-      }
-    }
-  }
-
-  let id = [];
   function startStopClickHandler() {
-    if (playState.countdown === false) {
-      
-      id = setInterval(() => {clockCountdown()}, 100);
-      setPlayState(
-        Object.assign({}, playState, { countdown: true, timerID: id })
-      );
-      console.log(playState)
-      id = setInterval(() => clockCountdown(), 100)
-      
-    } else {
-      setPlayState(Object.assign({}, playState, { countdown: false }));
-      clearInterval(playState.timerID);
+    if (timer.countdownActive === true) {
+      clearInterval(timer.ID);
+      setTimer(Object.assign(timer, { countdownActive: false, ID: "" }));
+    } else if (timer.countdownActive === false) {
+      setTimer(() => Object.assign(timer, { countdownActive: true }));
+      if (display.minutes !== "0" && display.seconds !== "0") {
+        if (timer.activeTimer === SESSION) {
+          sessionTimeInSeconds = display.minutes * 60 + display.seconds;
+        } else {
+          breakTimeInSeconds = display.minutes * 60 + display.seconds;
+        }
+      }
+      id = setInterval(() => clockCountdown(), 100);
     }
+
+    function clockCountdown() {
+      if (timer.ID === "") {
+        setTimer(Object.assign(timer, { ID: id }));
+      }
+
+      if (timer.activeTimer === SESSION) {
+        sessionTimeInSeconds--;
+        if (sessionTimeInSeconds >= 0) {
+          minutes = Math.floor(sessionTimeInSeconds / 60);
+          seconds = sessionTimeInSeconds % 60;
+          setDisplay({ minutes: minutes, seconds: seconds });
+          console.log(`${minutes}:${seconds}`);
+        } else if (sessionTimeInSeconds >= -3) {
+          setDisplay({ minutes: 0, seconds: 0 });
+          playAudio();
+          if (sessionTimeInSeconds === -3) {
+            sessionTimeInSeconds = timer.sessionLength * 60;
+            setTimer(Object.assign(timer, { activeTimer: BREAK }));
+          }
+        }
+      }
+
+      if (timer.activeTimer === BREAK) {
+        breakTimeInSeconds--;
+        if (breakTimeInSeconds >= 0) {
+          minutes = Math.floor(breakTimeInSeconds / 60);
+          seconds = breakTimeInSeconds % 60;
+          setDisplay({ minutes: minutes, seconds: seconds });
+          console.log(`${minutes}:${seconds}`);
+        } else if (breakTimeInSeconds >= -3) {
+          setDisplay({ minutes: 0, seconds: 0 });
+          playAudio();
+          if (breakTimeInSeconds === -3) {
+            breakTimeInSeconds = timer.breakLength * 60;
+            setTimer(Object.assign(timer, { activeTimer: SESSION }));
+          }
+        }
+      }
+    }
+  }
+
+  function resetClickHandler() {
+    clearInterval(timer.ID);
+    setTimer(defaultTimerState);
+    setDisplay(defaultDisplayState);
+    try {
+    audio.pause();
+    audio.currentTime=0
+    } catch {}
   }
 
   return (
     <>
       <h1>Productivity Clock</h1>
-      <SessionTimer timer={timer} adjustTime={adjustTimeClickHandler} />
-      <BreakLength timer={timer} adjustTime={adjustTimeClickHandler} />
-      <Display
-        playState={playState}
-        timer={timer}
-        minutesRemaining={displayState.minutesRemaining}
-        secondsRemaining={displayState.secondsRemaining}
-        startStopClickHandler={startStopClickHandler}
-      />
+
+      <section>
+        <Display
+          minutes={display.minutes}
+          seconds={display.seconds}
+          timer={timer}
+        />
+        <SessionTimer timer={timer} adjustTime={adjustTimeClickHandler} />
+        <BreakLength timer={timer} adjustTime={adjustTimeClickHandler} />
+      </section>
+
+      <section>
+        <button id="start_stop" onClick={startStopClickHandler}>
+          Start/Stop
+        </button>
+        <button id="reset" onClick={resetClickHandler}>
+          reset
+        </button>
+      </section>
     </>
   );
 }
 
 export function Display(props) {
-  function resetClickHandler() {
-    clearInterval(props.playState.timerID);
-    props.timer.setTimer(props.defaultTimerState);
-  }
-
   return (
-    <section>
-      <div id="timer-label">session:</div>
-      <div id="time=left">
-        {`${props.minutesRemaining} : ${props.secondsRemaining}`}
+    <>
+      <div id="timer-label">
+        {props.timer.activeTimer === SESSION ? "Session" : "Break"}
       </div>
-      <button id="start-stop" onClick={props.startStopClickHandler}>
-        Start/Stop
-      </button>
-      <button id="reset" onClick={() => resetClickHandler}>
-        reset
-      </button>
-    </section>
+      {props.timer.countdownActive === false ? (
+        <div id="time-left">
+          {props.timer.sessionLength < 10
+            ? `0${props.timer.sessionLength}:`
+            : `${props.timer.sessionLength}:`}
+          {props.seconds < 10 ? `0${props.seconds}` : `${props.seconds}`}
+        </div>
+      ) : (
+        <>
+          <div id="time-left">
+            {props.minutes < 10 ? `0${props.minutes}:` : `${props.minutes}:`}
+            {props.seconds < 10 ? `0${props.seconds}` : `${props.seconds}`}
+          </div>
+        </>
+      )}
+      <audio
+        id="beep"
+        src="https://www.soundjay.com/buttons/sounds/beep-11.mp3"
+      ></audio>
+    </>
   );
 }
 
@@ -143,7 +178,7 @@ export function SessionTimer(props) {
   return (
     <div id="session-label">
       <p>Session Length</p>
-      <section id="session-length"> {props.timer.sessionLength}:00 </section>
+      <section id="session-length"> {props.timer.sessionLength} </section>
       <button
         id="session-increment"
         onClick={() =>
@@ -177,7 +212,7 @@ export function BreakLength(props) {
   return (
     <div id="break-label">
       <p>Break Length</p>
-      <section id="break-length"> {props.timer.breakLength}:00 </section>
+      <section id="break-length"> {props.timer.breakLength} </section>
       <button
         id="break-increment"
         onClick={() =>
