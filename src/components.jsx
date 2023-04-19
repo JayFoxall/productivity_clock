@@ -63,7 +63,7 @@ export function ProductivityClock() {
           breakTimeInSeconds = display.minutes * 60 + display.seconds;
         }
       }
-      id = setInterval(() => clockCountdown(), 100);
+      id = setInterval(() => clockCountdown(), 1000);
     }
 
     function clockCountdown() {
