@@ -1,6 +1,7 @@
 {
   "name": "productivity_clock",
   "version": "0.1.0",
+  "homepage": "https://jayfoxall.github.io/productivity_clock",
   "private": true,
   "dependencies": {
     "@babel/core": "^7.16.0",
@@ -139,5 +140,8 @@
     "presets": [
       "react-app"
     ]
+  },
+  "devDependencies": {
+    "gh-pages": "^5.0.0"
   }
 }
