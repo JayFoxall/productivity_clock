@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/productivity_clock/static/css/main.31d6cfe0.css",
+    "main.js": "/productivity_clock/static/js/main.6701e2a9.js",
+    "static/js/787.71156f89.chunk.js": "/productivity_clock/static/js/787.71156f89.chunk.js",
+    "index.html": "/productivity_clock/index.html",
+    "main.6701e2a9.js.map": "/productivity_clock/static/js/main.6701e2a9.js.map",
+    "787.71156f89.chunk.js.map": "/productivity_clock/static/js/787.71156f89.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.31d6cfe0.css",
+    "static/js/main.6701e2a9.js"
+  ]
+}
