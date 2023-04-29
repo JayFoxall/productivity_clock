@@ -1,9 +1,13 @@
 import { useState } from "react";
+import { useRef } from "react";
+import { accurateInterval } from "./AccurateInterval";
 
 const INCREMENT = "Increment";
 const DECREMENT = "Decrement";
 const SESSION = "Session";
 const BREAK = "Break";
+
+
 
 export function ProductivityClock() {
   const defaultTimerState = {
@@ -12,6 +16,7 @@ export function ProductivityClock() {
     countdownActive: false,
     activeTimer: SESSION,
     ID: "",
+    buttonDisabled: false,
   };
   let [timer, setTimer] = useState(defaultTimerState);
 
@@ -43,64 +48,79 @@ export function ProductivityClock() {
     }, 1000);
   };
 
-  //TODO: Refactor clockCountdown to return minutesRemaining and secondsRemaining, and pass in break/sessionTimeInSeconds as arguments
   let id = "";
   let minutes = "0";
   let seconds = "0";
   let sessionTimeInSeconds = timer.sessionLength * 60;
   let breakTimeInSeconds = timer.breakLength * 60;
+  let btnRef = useRef();
 
   function startStopClickHandler() {
-    if (timer.countdownActive === true) {
-      clearInterval(timer.ID);
-      setTimer(Object.assign(timer, { countdownActive: false, ID: "" }));
-    } else if (timer.countdownActive === false) {
-      setTimer(() => Object.assign(timer, { countdownActive: true }));
-      if (display.minutes !== "0" && display.seconds !== "0") {
-        if (timer.activeTimer === SESSION) {
-          sessionTimeInSeconds = display.minutes * 60 + display.seconds;
-        } else {
-          breakTimeInSeconds = display.minutes * 60 + display.seconds;
-        }
-      }
-      id = setInterval(() => clockCountdown(), 1000);
-    }
-
-    function clockCountdown() {
-      if (timer.ID === "") {
-        setTimer(Object.assign(timer, { ID: id }));
-      }
-
-      if (timer.activeTimer === SESSION) {
-        sessionTimeInSeconds--;
-        if (sessionTimeInSeconds >= 0) {
-          minutes = Math.floor(sessionTimeInSeconds / 60);
-          seconds = sessionTimeInSeconds % 60;
-          setDisplay({ minutes: minutes, seconds: seconds });
-          console.log(`${minutes}:${seconds}`);
-        } else if (sessionTimeInSeconds >= -3) {
-          setDisplay({ minutes: 0, seconds: 0 });
-          playAudio();
-          if (sessionTimeInSeconds === -3) {
-            sessionTimeInSeconds = timer.sessionLength * 60;
-            setTimer(Object.assign(timer, { activeTimer: BREAK }));
+    if (timer.buttonDisabled === true) {
+      return;
+    } else {
+      setTimer(Object.assign(timer, { buttonDisabled: true }));
+      if (timer.countdownActive === true) {
+         clearInterval(timer.ID);
+        setTimer(
+          Object.assign(timer, {
+            countdownActive: false,
+            ID: "",
+            buttonDisabled: false,
+          })
+        );
+        //btnRef.current.removeAttribute("disabled");
+      } else if (timer.countdownActive === false) {
+        setTimer(() => Object.assign(timer, { countdownActive: true }));
+        if (display.minutes !== "0" && display.seconds !== "0") {
+          if (timer.activeTimer === SESSION) {
+            sessionTimeInSeconds = display.minutes * 60 + display.seconds;
+          } else {
+            breakTimeInSeconds = display.minutes * 60 + display.seconds;
           }
         }
+        //btnRef.current.removeAttribute("disabled");
+        ;
+        id = setInterval(() => clockCountdown(), 1000);
+        setTimer(Object.assign(timer, { buttonDisabled: false }))
       }
 
-      if (timer.activeTimer === BREAK) {
-        breakTimeInSeconds--;
-        if (breakTimeInSeconds >= 0) {
-          minutes = Math.floor(breakTimeInSeconds / 60);
-          seconds = breakTimeInSeconds % 60;
-          setDisplay({ minutes: minutes, seconds: seconds });
-          console.log(`${minutes}:${seconds}`);
-        } else if (breakTimeInSeconds >= -3) {
-          setDisplay({ minutes: 0, seconds: 0 });
-          playAudio();
-          if (breakTimeInSeconds === -3) {
-            breakTimeInSeconds = timer.breakLength * 60;
-            setTimer(Object.assign(timer, { activeTimer: SESSION }));
+      function clockCountdown() {
+        if (timer.ID === "") {
+          setTimer(Object.assign(timer, { ID: id }));
+        }
+
+        if (timer.activeTimer === SESSION) {
+          sessionTimeInSeconds--;
+          if (sessionTimeInSeconds >= 0) {
+            minutes = Math.floor(sessionTimeInSeconds / 60);
+            seconds = sessionTimeInSeconds % 60;
+            setDisplay({ minutes: minutes, seconds: seconds });
+            console.log(`${minutes}:${seconds}`);
+          } else if (sessionTimeInSeconds >= -3) {
+            setDisplay({ minutes: 0, seconds: 0 });
+            playAudio();
+            if (sessionTimeInSeconds === -3) {
+              sessionTimeInSeconds = timer.sessionLength * 60;
+              setTimer(Object.assign(timer, { activeTimer: BREAK }));
+            }
+          }
+        }
+
+        if (timer.activeTimer === BREAK) {
+          breakTimeInSeconds--;
+          if (breakTimeInSeconds >= 0) {
+            minutes = Math.floor(breakTimeInSeconds / 60);
+            seconds = breakTimeInSeconds % 60;
+            setDisplay({ minutes: minutes, seconds: seconds });
+            console.log(`${minutes}:${seconds}`);
+          } else if (breakTimeInSeconds >= -3) {
+            setDisplay({ minutes: 0, seconds: 0 });
+            playAudio();
+            if (breakTimeInSeconds === -3) {
+              breakTimeInSeconds = timer.breakLength * 60;
+              setTimer(Object.assign(timer, { activeTimer: SESSION }));
+            }
           }
         }
       }
@@ -112,8 +132,8 @@ export function ProductivityClock() {
     setTimer(defaultTimerState);
     setDisplay(defaultDisplayState);
     try {
-    audio.pause();
-    audio.currentTime=0
+      audio.pause();
+      audio.currentTime = 0;
     } catch {}
   }
 
@@ -132,7 +152,7 @@ export function ProductivityClock() {
       </section>
 
       <section>
-        <button id="start_stop" onClick={startStopClickHandler}>
+        <button ref={btnRef} id="start_stop" onClick={async () => {const result = await startStopClickHandler(); return result}}>
           Start/Stop
         </button>
         <button id="reset" onClick={resetClickHandler}>
