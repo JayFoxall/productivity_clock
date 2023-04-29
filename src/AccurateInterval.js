@@ -1,4 +1,3 @@
-
 // Credit to Peter Weinberg: https://codepen.io/freeCodeCamp/pen/XpKrrW
     // Accurate_Interval.js
     // Thanks Squeege! For the elegant answer provided to this question:
