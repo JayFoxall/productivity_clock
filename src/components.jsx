@@ -10,14 +10,14 @@ export function ProductivityClock() {
   const defaultTimerState = {
     sessionLength: 25,
     breakLength: 5,
+    timeRemaining: "",
     countdownActive: false,
     activeTimer: SESSION,
-    timerState: "Stopped",
     ID: "",
   };
   let [timer, setTimer] = useState(defaultTimerState);
 
-  let defaultDisplayState = { minutes: timer.sessionLength, seconds: "0" };
+  const defaultDisplayState = "25:00";
   let [display, setDisplay] = useState(defaultDisplayState);
 
   function adjustTimeClickHandler(component, element, state) {
@@ -26,112 +26,151 @@ export function ProductivityClock() {
     } else {
       if (element.innerHTML === INCREMENT) {
         if (component === "SessionTimer" && timer.sessionLength < 60) {
-          setTimer(Object.assign({}, timer, { sessionLength: (state += 1) }));
+          setTimer(Object.assign(timer, { sessionLength: (state += 1) }));
+          timer.sessionLength < 10
+            ? setDisplay(`0${timer.sessionLength}:00`)
+            : setDisplay(`${timer.sessionLength}:00`);
         } else if (component === "BreakTimer" && timer.breakLength < 60) {
           setTimer(Object.assign({}, timer, { breakLength: (state += 1) }));
         }
       } else if (element.innerHTML === DECREMENT)
         if (component === "SessionTimer" && timer.sessionLength > 1) {
-          setTimer(Object.assign({}, timer, { sessionLength: (state -= 1) }));
+          setTimer(Object.assign(timer, { sessionLength: (state -= 1) }));
+          timer.sessionLength < 10
+            ? setDisplay(`0${timer.sessionLength}:00`)
+            : setDisplay(`${timer.sessionLength}:00`);
         } else if (component === "BreakTimer" && timer.breakLength > 1) {
           setTimer(Object.assign({}, timer, { breakLength: (state -= 1) }));
         }
     }
   }
 
-  let audio = document.getElementById("beep");
-  let playAudio = () => {
-    let count = 0;
-    let audioID = setInterval(() => {
-      audio.play();
-      count++;
-      if (count === 3) clearInterval(audioID);
-    }, 1000);
-  };
-
-  let id = "";
-  let minutes = "0";
-  let seconds = "0";
-  let sessionTimeInSeconds = timer.sessionLength * 60;
-  let breakTimeInSeconds = timer.breakLength * 60;
-
   function startStopClickHandler() {
-    if (timer.ID && timer.countdownActive === true) {
-      try {
-        timer.ID.cancel();
-      } catch {}
+    if (timer.countdownActive === true) {
+      timer.ID.cancel();
       setTimer(
         Object.assign(timer, {
           countdownActive: false,
           ID: "",
-          buttonDisabled: false,
         })
       );
     } else if (timer.countdownActive === false && timer.ID === "") {
-      setTimer(() => Object.assign(timer, { countdownActive: true }));
-      if (display.minutes !== "0" && display.seconds !== "0") {
-        if (timer.activeTimer === SESSION) {
-          sessionTimeInSeconds = display.minutes * 60 + display.seconds;
-        } else {
-          breakTimeInSeconds = display.minutes * 60 + display.seconds;
-        }
-      }
-      id = accurateInterval(() => clockCountdown(), 1000);
+      setTimer(
+        Object.assign(
+          timer,
+          { countdownActive: true },
+          { ID: accurateInterval(() => clockCountdown(), 999) }
+        )
+      );
+    } else return;
+  }
+
+  let timeToSwitchClocks = -5;
+  function clockCountdown() {
+    if (timer.timeRemaining === "") {
+      assignTimerLength(timer.activeTimer);
     }
 
-    function clockCountdown() {
-      if (timer.ID === "") {
-        setTimer(Object.assign(timer, { ID: id }));
+    setTimer(Object.assign(timer, { timeRemaining: timer.timeRemaining - 1 }));
+    let minutes = Math.floor(timer.timeRemaining / 60);
+    let seconds = timer.timeRemaining % 60;
+    console.log(minutes, " : ", seconds);
+    let display = `${clockFormat(minutes)}:${clockFormat(seconds)}`;
+    setDisplay(display);
+
+    if (timer.timeRemaining === 0) {
+      playAudio();
+    }
+    if (timer.timeRemaining < 0) {
+      setDisplay("00:00");
+    }
+    if (timer.timeRemaining === timeToSwitchClocks) {
+      switchTimer(timer.activeTimer);
+      assignTimerLength(timer.activeTimer);
+    }
+  }
+
+  function assignTimerLength(activeTimer) {
+    if (
+      timer.timeRemaining !== "" &&
+      timer.timeRemaining !== timeToSwitchClocks
+    ) {
+      switch (activeTimer) {
+        case SESSION:
+          if (timer.timeRemaining < timer.sessionLength * 60) {
+            return;
+          }
+          break;
+        case BREAK:
+          if (timer.timeRemaining < timer.breakLength * 60) {
+            return;
+          }
+          break;
+        default:
+          break;
       }
-      if (timer.activeTimer === SESSION) {
-        sessionTimeInSeconds--;
-        if (sessionTimeInSeconds >= 1) {
-          minutes = Math.floor(sessionTimeInSeconds / 60);
-          seconds = sessionTimeInSeconds % 60;
-          setDisplay({ minutes: minutes, seconds: seconds });
-          console.log(`${minutes}:${seconds}`);
-        } else if (sessionTimeInSeconds >= -5) {
-          if (sessionTimeInSeconds === 0){
-            playAudio()
-          }
-          setDisplay({ minutes: 0, seconds: 0 });
-          if (sessionTimeInSeconds === -5) {
-            sessionTimeInSeconds = timer.sessionLength * 60;
-            setTimer(Object.assign(timer, { activeTimer: BREAK }));
-          }
-        }
-      }
-      if (timer.activeTimer === BREAK) {
-        breakTimeInSeconds--;
-        if (breakTimeInSeconds >= 1) {
-          minutes = Math.floor(breakTimeInSeconds / 60);
-          seconds = breakTimeInSeconds % 60;
-          setDisplay({ minutes: minutes, seconds: seconds });
-          console.log(`${minutes}:${seconds}`);
-        } else if (breakTimeInSeconds >= -5) {
-          if (breakTimeInSeconds === 0){
-            playAudio()
-          }
-          setDisplay({ minutes: 0, seconds: 0 });
-          if (breakTimeInSeconds === -5) {
-            breakTimeInSeconds = timer.breakLength * 60;
-            setTimer(Object.assign(timer, { activeTimer: SESSION }));
-          }
-        }
+    } else if (timer.ID || timer.timeRemaining === timeToSwitchClocks) {
+      switch (activeTimer) {
+        case SESSION:
+          timer.timeRemaining === timeToSwitchClocks
+            ? setTimer(
+                Object.assign(timer, {
+                  timeRemaining: timer.sessionLength * 60 + 1,
+                })
+              )
+            : setTimer(
+                Object.assign(timer, {
+                  timeRemaining: timer.sessionLength * 60,
+                })
+              );
+          break;
+        case BREAK:
+          timer.timeRemaining === timeToSwitchClocks
+            ? setTimer(
+                Object.assign(timer, {
+                  timeRemaining: timer.breakLength * 60 + 1,
+                })
+              )
+            : setTimer(
+                Object.assign(timer, {
+                  timeRemaining: timer.breakLength * 60,
+                })
+              );
+          break;
+        default:
+          break;
       }
     }
   }
 
+  let audio = "";
+  window.addEventListener(
+    "load",
+    () => (audio = document.getElementById("beep"))
+  );
+  audio = document.getElementById("beep");
+  function playAudio() {
+    audio.play();
+  }
+
+  function switchTimer(activeTimer) {
+    activeTimer === SESSION
+      ? setTimer(Object.assign(timer, { activeTimer: BREAK }))
+      : setTimer(Object.assign(timer, { activeTimer: SESSION }));
+  }
+
+  function clockFormat(number) {
+    return number < 10 ? `0${number}` : number;
+  }
+
   function resetClickHandler() {
-    try {
-      timer.ID.cancel();
-    } catch {}
     setTimer(defaultTimerState);
     setDisplay(defaultDisplayState);
-    try {
-      audio.pause();
-      audio.currentTime = 0;
-    } catch {}
+    if (timer.ID) {
+      timer.ID.cancel();
+    }
+    audio.pause();
+    audio.currentTime = 0;
   }
 
   return (
@@ -139,11 +178,7 @@ export function ProductivityClock() {
       <h1>Productivity Clock</h1>
 
       <section>
-        <Display
-          minutes={display.minutes}
-          seconds={display.seconds}
-          timer={timer}
-        />
+        <Display timer={timer} clock={display} />
 
         <section>
           <button id="start_stop" onClick={startStopClickHandler}>
@@ -167,21 +202,7 @@ export function Display(props) {
       <div id="timer-label">
         {props.timer.activeTimer === SESSION ? "Session" : "Break"}
       </div>
-      {props.timer.countdownActive === false ? (
-        <div id="time-left">
-          {props.timer.sessionLength < 10
-            ? `0${props.timer.sessionLength}:`
-            : `${props.timer.sessionLength}:`}
-          {props.seconds < 10 ? `0${props.seconds}` : `${props.seconds}`}
-        </div>
-      ) : (
-        <>
-          <div id="time-left">
-            {props.minutes < 10 ? `0${props.minutes}:` : `${props.minutes}:`}
-            {props.seconds < 10 ? `0${props.seconds}` : `${props.seconds}`}
-          </div>
-        </>
-      )}
+      <div id="time-left">{`${props.clock}`}</div>{" "}
       <audio
         id="beep"
         src="https://www.soundjay.com/buttons/sounds/beep-11.mp3"
